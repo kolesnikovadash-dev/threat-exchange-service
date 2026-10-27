@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"threat-exchange-service/internal/app"
+	"github.com/kolesnikovadash-dev/threat-exchange-service/internal/app"
 )
 
 func TestAPIWithPostgres(t *testing.T) {
@@ -40,16 +40,27 @@ func TestAPIWithPostgres(t *testing.T) {
 		t.Fatalf("refusing to run integration tests against non-test database %q", dbName)
 	}
 
-	migration, err := os.ReadFile("../../db/migrations/000001_init.up.sql")
+	// применяем миграции, если тестовая база ещё не подготовлена
+	var schemaReady bool
+	err = pool.QueryRow(ctx, `
+        SELECT to_regclass('public.threat') IS NOT NULL
+           AND to_regclass('public.file_hash') IS NOT NULL
+    `).Scan(&schemaReady)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, statement := range strings.Split(string(migration), ";") {
-		if strings.TrimSpace(statement) == "" {
-			continue
-		}
-		if _, err := pool.Exec(ctx, statement); err != nil {
+	if !schemaReady {
+		migration, err := os.ReadFile("../../db/migrations/000001_init.up.sql")
+		if err != nil {
 			t.Fatal(err)
+		}
+		for _, statement := range strings.Split(string(migration), ";") {
+			if strings.TrimSpace(statement) == "" {
+				continue
+			}
+			if _, err := pool.Exec(ctx, statement); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 
@@ -63,8 +74,8 @@ func TestAPIWithPostgres(t *testing.T) {
 	t.Cleanup(func() {
 		cleanCtx, cleanCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cleanCancel()
-		_, _ = pool.Exec(cleanCtx, `DELETE FROM file_hashes WHERE md5 = ANY($1)`, []string{md5A, md5B})
-		_, _ = pool.Exec(cleanCtx, `DELETE FROM threats WHERE name = $1`, name)
+		_, _ = pool.Exec(cleanCtx, `DELETE FROM file_hash WHERE md5 = ANY($1)`, []string{md5A, md5B})
+		_, _ = pool.Exec(cleanCtx, `DELETE FROM threat WHERE name = $1`, name)
 	})
 
 	srv := httptest.NewServer(app.New(pool))

@@ -5,21 +5,21 @@ import (
 	"net/http"
 )
 
-type ErrorResponse struct {
+type errorResponse struct {
 	Message string `json:"message"`
 	Details string `json:"details"`
 }
 
-func WriteJSON(w http.ResponseWriter, status int, data any) {
+func WriteJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(data)
+	_ = json.NewEncoder(w).Encode(payload)
 }
 
-func WriteOK(w http.ResponseWriter, data any) {
-	WriteJSON(w, http.StatusOK, data)
+func WriteOK(w http.ResponseWriter, status int, data any) {
+	WriteJSON(w, status, data)
 }
 
 func WriteError(w http.ResponseWriter, status int, message, details string) {
-	WriteJSON(w, status, ErrorResponse{Message: message, Details: details})
+	WriteJSON(w, status, errorResponse{Message: message, Details: details})
 }

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"threat-exchange-service/internal/apperrors"
-	"threat-exchange-service/internal/models"
+	"github.com/kolesnikovadash-dev/threat-exchange-service/internal/apperrors"
+	"github.com/kolesnikovadash-dev/threat-exchange-service/internal/models"
 )
 
 var md5Pattern = regexp.MustCompile(`^[a-fA-F0-9]{32}$`)

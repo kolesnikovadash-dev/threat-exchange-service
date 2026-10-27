@@ -1,2 +1,2 @@
-DROP TABLE IF EXISTS file_hashes;
-DROP TABLE IF EXISTS threats;
+DROP TABLE IF EXISTS file_hash;
+DROP TABLE IF EXISTS threat;

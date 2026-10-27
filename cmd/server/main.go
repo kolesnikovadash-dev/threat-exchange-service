@@ -10,10 +10,9 @@ import (
 	"syscall"
 	"time"
 
-	"threat-exchange-service/internal/app"
-	"threat-exchange-service/internal/config"
-
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/kolesnikovadash-dev/threat-exchange-service/internal/app"
+	"github.com/kolesnikovadash-dev/threat-exchange-service/internal/config"
+	"github.com/kolesnikovadash-dev/threat-exchange-service/internal/repository"
 )
 
 func main() {
@@ -24,15 +23,11 @@ func main() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	pool, err := repository.NewPostgresPool(ctx, cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("create database pool: %v", err)
 	}
 	defer pool.Close()
-	if err := pool.Ping(ctx); err != nil {
-		log.Fatalf("database unavailable: %v", err)
-	}
-
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
 		Handler:           app.New(pool),

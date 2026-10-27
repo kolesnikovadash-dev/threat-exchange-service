@@ -22,7 +22,7 @@ lint:
 	go vet ./...
 
 fmt:
-	go fmt ./...
+	gofmt -w .
 
 docker-up:
 	docker compose up -d --build

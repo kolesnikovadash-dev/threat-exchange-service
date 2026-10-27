@@ -1,4 +1,4 @@
-package dto
+package threat
 
 type ThreatFields struct {
 	Name        string  `json:"name"`

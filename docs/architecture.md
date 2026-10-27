@@ -1,65 +1,66 @@
-# Архитектура сервиса
+# Архитектура
 
-## Назначение
-
-Сервис предоставляет три REST-операции для добавления, поиска и обновления сведений об угрозе по MD5. Проверка самого файла в задачи сервиса не входит.
-
-## Структура и ответственность
-
-| Путь | Ответственность |
-| --- | --- |
-| `cmd/server` | запуск HTTP-сервера и корректное завершение |
-| `internal/app` | композиция зависимостей слоёв |
-| `internal/server` | маршруты HTTP, не зависит от пакета delivery |
-| `internal/delivery/threat` | HTTP-обработчики, разбор JSON, преобразование ошибок в статусы |
-| `internal/delivery/threat/dto` | структуры входных JSON-запросов |
-| `internal/usecase/threat/threat.go` | сценарии получения, создания и обновления угрозы |
-| `internal/usecase/threat/validation.go` | проверка и нормализация полей угрозы |
-| `internal/repository/threat` | транзакции и SQL запросы к PostgreSQL |
-| `internal/models` | модели предметной области |
-| `internal/apperrors` | общие типизированные ошибки |
-| `internal/httputil` | формирование JSON-ответов |
-| `internal/config` | настройки приложения из окружения |
-
-## Зависимости
-
-```mermaid
-flowchart TD
-  Client[HTTP-клиент] --> Server[server]
-  Server --> Delivery[delivery]
-  Delivery --> Usecase[usecase]
-  Usecase --> Repository[repository]
-  Repository --> DB[(PostgreSQL)]
-  App[app] -.-> Server
-  App -.-> Delivery
-  App -.-> Usecase
-  App -.-> Repository
-```
-
-Стрелки сплошной линией обозначают поток вызовов. В коде `server` не импортирует `delivery`: ему передаются обработчики через `server.Config`. Пакет `usecase` также не импортирует реализацию `repository`, работая через небольшой интерфейс. Только `app` знает о конкретных реализациях и собирает их.
-
-В каждом слое собственная структура `Config` с необходимыми зависимостями. Пакеты `models` и `apperrors` доступны нескольким слоям: это общие типы, а не зависимости от реализации другого слоя.
+Сервис хранит информацию об известных угрозах по MD5. Анализ и сканирование файлов в его задачи не входят.
 
 ## Поток запроса
 
-1. `server` направляет запрос в нужный обработчик `delivery`
-2. `delivery` читает JSON в DTO, проверяет формат тела и вызывает интерфейс usecase
-3. `usecase` проверяет MD5, имя и дополнительные поля, нормализует значения
-4. `repository` выполняет SQL-запросы и транзакции
-5. `delivery` возвращает JSON и HTTP-статус через `httputil`
+```text
+HTTP request
+    ↓
+server
+    ↓
+delivery/threat
+    ↓
+usecase/threat
+    ↓
+repository/threat
+    ↓
+PostgreSQL
+```
+
+## Структура
+
+| Пакет | Назначение |
+| --- | --- |
+| `cmd/server` | точка входа, подключение к БД, запуск и остановка HTTP-сервера |
+| `internal/app` | создание конфигов и сборка зависимостей (`CreateConfig`) |
+| `internal/server` | маршрутизация HTTP |
+| `internal/delivery` | конфигурация HTTP-обработчиков |
+| `internal/delivery/threat` | JSON-запросы, статусы, обработка ошибок |
+| `internal/dto/threat/request.go` | DTO для входных JSON-запросов |
+| `internal/usecase` | конфигурация бизнес-логики |
+| `internal/usecase/threat/threat.go` | сценарии создания, поиска и обновления |
+| `internal/usecase/threat/validation.go` | проверка и нормализация входных данных |
+| `internal/repository` | конфигурация слоя хранения и создание пула PostgreSQL |
+| `internal/repository/threat/postgres.go` | SQL-запросы и транзакции |
+| `internal/models` | основные модели угрозы |
+| `internal/apperrors` | общие ошибки приложения |
+| `internal/httputil` | формирование JSON-ответов |
+| `internal/config` | чтение параметров окружения |
+
+В `internal/app/config.go` создаются `Repositories`, `Usecases` и `Handlers`. Каждый корневой пакет слоя (`repository`, `usecase`, `delivery`) имеет собственный `config.go`. Конфигурации принимают интерфейсы и не зависят от конкретных реализаций соседних слоёв, что позволяет заменять зависимости в тестах.
+
+## Интерфейсы и зависимости
+
+`delivery/threat` знает только интерфейс `ThreatUsecase`, а `usecase/threat` — только `ThreatRepository`. Конкретные реализации создаются при сборке приложения, поэтому бизнес-логика не зависит от HTTP и pgx.
+
+`server.Config` получает HTTP-обработчики и не импортирует `delivery`. Общие пакеты `models`, `apperrors` и `httputil` используются по назначению.
+
+## Формат HTTP-ответов
+
+`httputil.WriteJSON`, `WriteOK` и `WriteError` формируют JSON-ответы. Формат ответа соответствует OpenAPI: успешные данные не оборачиваются в `data`, а ошибки — в `error`:
+
+- успешный ответ: `{ "md5": "...", "name": "...", ... }`
+- ответ об ошибке: `{ "message": "...", "details": "..." }`
 
 ## Валидация
 
-- `delivery`: `Content-Type: application/json`, корректность и единственность JSON-объекта, неизвестные поля, запрет `null`, предел 64 KiB
-- `usecase`: MD5 из 32 шестнадцатеричных символов, непустое имя не более 255 символов, описание до 2048 символов, разрешённые значения `severity` и `threat_type`
-- `repository` / БД: уникальность MD5 и имени угрозы, внешние ключи, ограничения CHECK
+- delivery: проверка `Content-Type`, корректности одного JSON-объекта, неизвестных полей, `null`, лимита 64 KiB
+- usecase: MD5 длиной 32 hex-символа, имя 1–255 символов, описание не более 2048 символов, разрешённые перечисления
+- БД: ключи, уникальность, CHECK, внешние ключи
 
-## Ошибки
+## Обновление угрозы
 
-Usecase и repository возвращают ошибки из `apperrors` с возможным дополнительным контекстом. В `delivery` ошибки сопоставляются с кодами 400, 404, 409 и 500. Внутренние ошибки БД не раскрываются клиенту.
+Одна запись `threat` связана с несколькими MD5. При PUT с тем же `name` изменение `severity`, `description` и `threat_type` изменяет общие сведения для всех соответствующих MD5. Если имя меняется, конкретный MD5 привязывается к другому названию.
 
-## Обновление информации
-
-Одна запись `threats` может относиться к нескольким MD5. Изменение общих полей угрозы (`description`, `severity`, `threat_type`) через PUT отражается для всех связанных MD5. Изменение `name` перепривязывает конкретный MD5 к другой записи угрозы, не переименовывая запись для остальных хешей.
-
-Непереданные общие поля при PUT сохраняют значения. При POST противоречащие метаданные существующего названия приводят к 409.
+Описание БД: [`../db/normalized/er_diagram.md`](../db/normalized/er_diagram.md) и [`../db/normalized/relations.md`](../db/normalized/relations.md). API: [`../api/openapi.yaml`](../api/openapi.yaml).

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"threat-exchange-service/internal/apperrors"
-	"threat-exchange-service/internal/models"
+	"github.com/kolesnikovadash-dev/threat-exchange-service/internal/apperrors"
+	"github.com/kolesnikovadash-dev/threat-exchange-service/internal/models"
 )
 
 type fakeRepository struct {
@@ -44,7 +44,7 @@ func TestCreateNormalizesInput(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := &fakeRepository{}
-			got, err := New(Config{Repository: repo}).Create(context.Background(), tc.input)
+			got, err := NewThreatUsecase(repo).Create(context.Background(), tc.input)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -76,7 +76,7 @@ func TestRejectsInvalidInputBeforeWriting(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := &fakeRepository{}
-			_, err := New(Config{Repository: repo}).Create(context.Background(), tc.input)
+			_, err := NewThreatUsecase(repo).Create(context.Background(), tc.input)
 			if !errors.Is(err, apperrors.ErrInvalidInput) || repo.calls != 0 {
 				t.Fatalf("err=%v calls=%d", err, repo.calls)
 			}
@@ -92,7 +92,7 @@ func TestUpdateUsesMD5FromURL(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := &fakeRepository{}
-			_, err := New(Config{Repository: repo}).Update(context.Background(), tc.urlMD5, models.ThreatInput{MD5: tc.bodyMD5, Name: "Test"})
+			_, err := NewThreatUsecase(repo).Update(context.Background(), tc.urlMD5, models.ThreatInput{MD5: tc.bodyMD5, Name: "Test"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -108,7 +108,7 @@ func TestGetRejectsMalformedMD5(t *testing.T) {
 	for _, md5 := range cases {
 		t.Run(md5, func(t *testing.T) {
 			repo := &fakeRepository{}
-			_, err := New(Config{Repository: repo}).GetByMD5(context.Background(), md5)
+			_, err := NewThreatUsecase(repo).GetByMD5(context.Background(), md5)
 			if !errors.Is(err, apperrors.ErrInvalidInput) || repo.calls != 0 {
 				t.Fatalf("err=%v calls=%d", err, repo.calls)
 			}

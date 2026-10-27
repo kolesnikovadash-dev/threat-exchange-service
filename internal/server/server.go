@@ -2,7 +2,8 @@ package server
 
 import (
 	"net/http"
-	"threat-exchange-service/internal/httputil"
+
+	"github.com/kolesnikovadash-dev/threat-exchange-service/internal/httputil"
 )
 
 type Config struct {
@@ -14,7 +15,7 @@ type Config struct {
 func New(cfg Config) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
-		httputil.WriteOK(w, map[string]string{"status": "ok"})
+		httputil.WriteOK(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 	mux.HandleFunc("GET /info/{md5}", cfg.GetByMD5)
 	mux.HandleFunc("POST /info", cfg.Create)

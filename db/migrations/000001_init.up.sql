@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS threats (
+CREATE TABLE IF NOT EXISTS threat (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name VARCHAR(255) NOT NULL UNIQUE,
     description TEXT NOT NULL DEFAULT '',
@@ -9,11 +9,11 @@ CREATE TABLE IF NOT EXISTS threats (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS file_hashes (
+CREATE TABLE IF NOT EXISTS file_hash (
     md5 VARCHAR(32) PRIMARY KEY CHECK (md5 ~ '^[0-9a-f]{32}$'),
-    threat_id BIGINT NOT NULL REFERENCES threats(id) ON DELETE RESTRICT,
+    threat_id BIGINT NOT NULL REFERENCES threat(id) ON DELETE RESTRICT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS file_hashes_threat_id_idx ON file_hashes(threat_id);
+CREATE INDEX IF NOT EXISTS file_hash_threat_id_idx ON file_hash(threat_id);

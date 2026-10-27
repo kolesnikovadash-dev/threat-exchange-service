@@ -1,4 +1,4 @@
-module threat-exchange-service
+module github.com/kolesnikovadash-dev/threat-exchange-service
 
 go 1.26.0
 

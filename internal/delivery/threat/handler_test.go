@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"threat-exchange-service/internal/apperrors"
-	delivery "threat-exchange-service/internal/delivery/threat"
-	"threat-exchange-service/internal/models"
-	"threat-exchange-service/internal/server"
-	usecase "threat-exchange-service/internal/usecase/threat"
+	"github.com/kolesnikovadash-dev/threat-exchange-service/internal/apperrors"
+	delivery "github.com/kolesnikovadash-dev/threat-exchange-service/internal/delivery/threat"
+	"github.com/kolesnikovadash-dev/threat-exchange-service/internal/models"
+	"github.com/kolesnikovadash-dev/threat-exchange-service/internal/server"
+	usecase "github.com/kolesnikovadash-dev/threat-exchange-service/internal/usecase/threat"
 )
 
 type repoStub struct{ err error }
@@ -38,8 +38,8 @@ func (f *repoStub) Update(_ context.Context, in models.ThreatInput) (models.Thre
 }
 
 func perform(method, path, payload string, dbErr error) *httptest.ResponseRecorder {
-	handler := delivery.NewHandler(delivery.Config{Usecase: usecase.New(usecase.Config{Repository: &repoStub{err: dbErr}})})
-	api := server.New(server.Config{GetByMD5: handler.GetByMD5, Create: handler.Create, Update: handler.Update})
+	handler := delivery.NewHandler(usecase.NewThreatUsecase(&repoStub{err: dbErr}))
+	api := server.New(server.Config{GetByMD5: handler.GetByMD5, Create: handler.CreateThreat, Update: handler.UpdateThreat})
 	req := httptest.NewRequest(method, path, strings.NewReader(payload))
 	if method == http.MethodPost || method == http.MethodPut {
 		req.Header.Set("Content-Type", "application/json")

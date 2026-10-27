@@ -10,10 +10,10 @@ import (
 	"mime"
 	"net/http"
 
-	"threat-exchange-service/internal/apperrors"
-	"threat-exchange-service/internal/delivery/threat/dto"
-	"threat-exchange-service/internal/httputil"
-	"threat-exchange-service/internal/models"
+	"github.com/kolesnikovadash-dev/threat-exchange-service/internal/apperrors"
+	threatdto "github.com/kolesnikovadash-dev/threat-exchange-service/internal/dto/threat"
+	"github.com/kolesnikovadash-dev/threat-exchange-service/internal/httputil"
+	"github.com/kolesnikovadash-dev/threat-exchange-service/internal/models"
 )
 
 const maxBodySize = 64 * 1024
@@ -24,30 +24,30 @@ type ThreatUsecase interface {
 	Update(context.Context, string, models.ThreatInput) (models.Threat, error)
 }
 
-type Config struct {
-	Usecase ThreatUsecase
+type Handler struct {
+	threat ThreatUsecase
 }
 
-type Handler struct{ usecase ThreatUsecase }
-
-func NewHandler(cfg Config) *Handler { return &Handler{usecase: cfg.Usecase} }
+func NewHandler(threat ThreatUsecase) *Handler {
+	return &Handler{threat: threat}
+}
 
 func (h *Handler) GetByMD5(w http.ResponseWriter, r *http.Request) {
-	result, err := h.usecase.GetByMD5(r.Context(), r.PathValue("md5"))
+	result, err := h.threat.GetByMD5(r.Context(), r.PathValue("md5"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteOK(w, result)
+	httputil.WriteOK(w, http.StatusOK, result)
 }
 
-func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
-	var request dto.CreateRequest
+func (h *Handler) CreateThreat(w http.ResponseWriter, r *http.Request) {
+	var request threatdto.CreateRequest
 	if err := decodeJSON(w, r, &request); err != nil {
 		httputil.WriteError(w, http.StatusBadRequest, "Invalid request", err.Error())
 		return
 	}
-	result, err := h.usecase.Create(r.Context(), models.ThreatInput{
+	result, err := h.threat.Create(r.Context(), models.ThreatInput{
 		MD5: request.MD5, Name: request.Name,
 		Description: request.Description, Severity: request.Severity, ThreatType: request.ThreatType,
 	})
@@ -55,16 +55,16 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusCreated, result)
+	httputil.WriteOK(w, http.StatusCreated, result)
 }
 
-func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
-	var request dto.UpdateRequest
+func (h *Handler) UpdateThreat(w http.ResponseWriter, r *http.Request) {
+	var request threatdto.UpdateRequest
 	if err := decodeJSON(w, r, &request); err != nil {
 		httputil.WriteError(w, http.StatusBadRequest, "Invalid request", err.Error())
 		return
 	}
-	result, err := h.usecase.Update(r.Context(), r.PathValue("md5"), models.ThreatInput{
+	result, err := h.threat.Update(r.Context(), r.PathValue("md5"), models.ThreatInput{
 		Name: request.Name, Description: request.Description,
 		Severity: request.Severity, ThreatType: request.ThreatType,
 	})
@@ -72,7 +72,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteOK(w, result)
+	httputil.WriteOK(w, http.StatusOK, result)
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, dest any) error {
